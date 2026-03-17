@@ -74,7 +74,7 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(filePath).pipe(res);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  每日盈亏记录\n`);
   console.log(`  本地地址:  http://localhost:${PORT}`);
   const _u = process.env.UPSTASH_REDIS_REST_URL || '';
