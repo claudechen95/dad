@@ -16,8 +16,8 @@ resources:
       timeout: 60
       customRuntimeConfig:
         command:
-          - node
-          - server.js
+          - /bin/bash
+          - bootstrap
         port: 9000
       environmentVariables:
         PORT: '9000'
