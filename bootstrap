@@ -1,3 +1,2 @@
 #!/bin/bash
-npm install --production
 PORT=9000 exec node server.js
