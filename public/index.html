@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>每日盈亏记录</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 14px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #4a6cf7;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { font-size: 14px; color: #999; }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: #fff;
+      padding: 20px 24px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+    header p { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+    /* --- Tabs --- */
+    .tabs {
+      display: flex;
+      background: #fff;
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      background: transparent;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active { background: #1a1a2e; color: #fff; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* --- Cards --- */
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    /* --- Form --- */
+    .form-group { margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input[type="date"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #e8e8e8;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      color: #333;
+      background: #fafafa;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #4a6cf7;
+      background: #fff;
+    }
+
+    textarea { resize: none; height: 70px; font-size: 14px; }
+
+    .win-loss-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+
+    .wl-btn {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e8e8e8;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fafafa;
+      color: #aaa;
+      transition: all 0.2s;
+    }
+
+    .wl-btn.selected-win { border-color: #22c55e; background: #f0fdf4; color: #16a34a; }
+    .wl-btn.selected-loss { border-color: #ef4444; background: #fef2f2; color: #dc2626; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #1a1a2e, #4a6cf7);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      letter-spacing: 0.5px;
+    }
+
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .submit-btn:not(:disabled):active { opacity: 0.8; }
+
+    /* --- Stats Bar --- */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat-item {
+      background: #fff;
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+
+    .stat-label { font-size: 11px; color: #999; margin-bottom: 4px; font-weight: 500; }
+    .stat-value { font-size: 18px; font-weight: 800; }
+    .stat-value.win { color: #16a34a; }
+    .stat-value.loss { color: #dc2626; }
+    .stat-value.neutral { color: #333; }
+
+    /* --- Record List --- */
+    .record-item {
+      display: flex;
+      align-items: center;
+      padding: 13px 0;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 12px;
+    }
+
+    .record-item:last-child { border-bottom: none; }
+
+    .record-date-block { text-align: center; min-width: 42px; }
+    .record-day { font-size: 22px; font-weight: 800; line-height: 1; color: #1a1a2e; }
+    .record-month { font-size: 11px; color: #999; margin-top: 2px; }
+    .record-info { flex: 1; }
+    .record-note { font-size: 13px; color: #888; margin-top: 2px; }
+    .record-amount { font-size: 20px; font-weight: 800; text-align: right; }
+    .record-amount.win { color: #16a34a; }
+    .record-amount.loss { color: #dc2626; }
+
+    .record-edit-btn {
+      background: none;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .record-edit-btn:active { background: #f5f5f5; }
+
+    /* --- Monthly Overview --- */
+    .month-summary-list {}
+
+    .month-row {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .month-row:active { transform: scale(0.98); }
+
+    .month-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .month-row-label { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+    .month-row-net { font-size: 18px; font-weight: 800; }
+
+    .month-row-details {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .month-row-details span { font-weight: 600; }
+
+    /* --- Empty state --- */
+    .empty { text-align: center; padding: 40px 20px; color: #bbb; font-size: 15px; }
+    .empty-icon { font-size: 48px; margin-bottom: 10px; }
+
+    /* --- Modal --- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 36px;
+      width: 100%;
+      max-width: 480px;
+      animation: slideUp 0.25s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-title { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 18px; text-align: center; }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 13px;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+    }
+
+    .btn-save {
+      flex: 2;
+      padding: 13px;
+      background: linear-gradient(135deg, #1a1a2e, #4a6cf7);
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .btn-save:disabled, .btn-cancel:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-delete {
+      padding: 13px 16px;
+      background: #fef2f2;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #dc2626;
+      cursor: pointer;
+    }
+
+    .btn-delete:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Badge for today */
+    .today-badge {
+      display: inline-block;
+      background: #fef3c7;
+      color: #d97706;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .notice {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #92400e;
+      margin-bottom: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Initial loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">加载中...</div>
+</div>
+
+<header>
+  <h1>每日盈亏记录</h1>
+  <p>记录每天的输赢，掌握趋势</p>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-btn-record" onclick="switchTab('record', this)">记录</button>
+    <button class="tab-btn" id="tab-btn-history" onclick="switchTab('history', this)">历史</button>
+    <button class="tab-btn" id="tab-btn-monthly" onclick="switchTab('monthly', this)">月报</button>
+  </div>
+
+  <!-- ===== 记录 TAB ===== -->
+  <div class="tab-pane active" id="tab-record">
+
+    <div class="notice" id="notice-duplicate">该日期已有记录，保存将覆盖原有数据。</div>
+
+    <div class="card">
+      <div class="card-title">新增 / 修改记录</div>
+
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="input-date" onchange="onDateChange()" />
+      </div>
+
+      <div class="form-group">
+        <label>结果</label>
+        <div class="win-loss-toggle">
+          <button class="wl-btn" id="btn-win" onclick="selectType('win')">赢 ✅</button>
+          <button class="wl-btn" id="btn-loss" onclick="selectType('loss')">输 ❌</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>金额（元）</label>
+        <input type="number" id="input-amount" placeholder="请输入金额" min="0" step="1" />
+      </div>
+
+      <div class="form-group">
+        <label>备注（可选）</label>
+        <textarea id="input-note" placeholder="今天的情况..."></textarea>
+      </div>
+
+      <button class="submit-btn" id="submit-btn" onclick="saveRecord()">保存记录</button>
+    </div>
+
+    <!-- Quick stats for current month -->
+    <div class="card">
+      <div class="card-title" id="quick-stats-title">本月概况</div>
+      <div class="stats-bar" id="quick-stats"></div>
+    </div>
+
+  </div>
+
+  <!-- ===== 历史 TAB ===== -->
+  <div class="tab-pane" id="tab-history">
+    <div class="card">
+      <div class="card-title">全部记录</div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- ===== 月报 TAB ===== -->
+  <div class="tab-pane" id="tab-monthly">
+    <div class="month-summary-list" id="monthly-list"></div>
+  </div>
+
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">修改记录</div>
+
+    <div class="form-group">
+      <label>日期</label>
+      <input type="date" id="modal-date" disabled style="color:#999" />
+    </div>
+
+    <div class="form-group">
+      <label>结果</label>
+      <div class="win-loss-toggle">
+        <button class="wl-btn" id="modal-btn-win" onclick="modalSelectType('win')">赢 ✅</button>
+        <button class="wl-btn" id="modal-btn-loss" onclick="modalSelectType('loss')">输 ❌</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>金额（元）</label>
+      <input type="number" id="modal-amount" placeholder="金额" min="0" step="1" />
+    </div>
+
+    <div class="form-group">
+      <label>备注（可选）</label>
+      <textarea id="modal-note" placeholder="备注..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-delete" id="modal-btn-delete" onclick="deleteRecord()">删除</button>
+      <button class="btn-cancel" id="modal-btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" id="modal-btn-save" onclick="saveModalRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA LAYER — async, talks to /api/records
+// ============================================================
+let records = {}; // module-level cache, loaded once on init
+
+async function initData() {
+  const res = await fetch('/api/records');
+  if (!res.ok) throw new Error('加载失败');
+  records = (await res.json()) || {};
+}
+
+function getRecord(dateStr) {
+  return records[dateStr] || null;
+}
+
+function getAllSortedDates() {
+  return Object.keys(records).sort((a, b) => b.localeCompare(a));
+}
+
+async function upsertRecord(dateStr, type, amount, note) {
+  const record = { type, amount: parseFloat(amount), note: (note || '').trim(), updatedAt: Date.now() };
+  records[dateStr] = record; // optimistic update
+  const res = await fetch('/api/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: dateStr, type, amount, note }),
+  });
+  if (!res.ok) {
+    delete records[dateStr]; // roll back on failure
+    throw new Error('保存失败');
+  }
+}
+
+async function deleteRecordData(dateStr) {
+  const backup = records[dateStr];
+  delete records[dateStr]; // optimistic
+  const res = await fetch(`/api/records?date=${encodeURIComponent(dateStr)}`, { method: 'DELETE' });
+  if (!res.ok) {
+    records[dateStr] = backup; // roll back
+    throw new Error('删除失败');
+  }
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  return { year: y, month: m, day: d };
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-');
+  return `${y}年${parseInt(m)}月`;
+}
+
+function formatAmount(amount) {
+  return amount.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ============================================================
+// TABS
+// ============================================================
+async function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+
+  if (name === 'history') renderHistory();
+  if (name === 'monthly') renderMonthly();
+  if (name === 'record') renderQuickStats();
+}
+
+// ============================================================
+// RECORD TAB
+// ============================================================
+let selectedType = null;
+
+function initRecordTab() {
+  document.getElementById('input-date').value = today();
+  onDateChange();
+}
+
+function selectType(t) {
+  selectedType = t;
+  document.getElementById('btn-win').className = 'wl-btn' + (t === 'win' ? ' selected-win' : '');
+  document.getElementById('btn-loss').className = 'wl-btn' + (t === 'loss' ? ' selected-loss' : '');
+}
+
+function onDateChange() {
+  const dateStr = document.getElementById('input-date').value;
+  const existing = getRecord(dateStr);
+  const notice = document.getElementById('notice-duplicate');
+
+  if (existing) {
+    notice.style.display = 'block';
+    selectType(existing.type);
+    document.getElementById('input-amount').value = existing.amount;
+    document.getElementById('input-note').value = existing.note || '';
+  } else {
+    notice.style.display = 'none';
+    selectType(null);
+    document.getElementById('input-amount').value = '';
+    document.getElementById('input-note').value = '';
+  }
+}
+
+async function saveRecord() {
+  const dateStr = document.getElementById('input-date').value;
+  const amount = parseFloat(document.getElementById('input-amount').value);
+  const note = document.getElementById('input-note').value;
+
+  if (!dateStr) return alert('请选择日期');
+  if (!selectedType) return alert('请选择赢或输');
+  if (isNaN(amount) || amount < 0) return alert('请输入有效金额');
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    await upsertRecord(dateStr, selectedType, amount, note);
+
+    // reset form
+    document.getElementById('input-amount').value = '';
+    document.getElementById('input-note').value = '';
+    selectType(null);
+    document.getElementById('notice-duplicate').style.display = 'none';
+    document.getElementById('input-date').value = today();
+
+    renderQuickStats();
+    showToast('记录已保存 ✓');
+  } catch (e) {
+    showToast('保存失败，请重试');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存记录';
+  }
+}
+
+function renderQuickStats() {
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthEntries = Object.entries(records).filter(([d]) => d.startsWith(ym));
+
+  let totalWin = 0, totalLoss = 0;
+  monthEntries.forEach(([, r]) => {
+    if (r.type === 'win') totalWin += r.amount;
+    else totalLoss += r.amount;
+  });
+  const net = totalWin - totalLoss;
+  const days = monthEntries.length;
+
+  document.getElementById('quick-stats-title').textContent =
+    `本月概况（${now.getMonth() + 1}月，共${days}天）`;
+
+  const el = document.getElementById('quick-stats');
+  if (days === 0) {
+    el.innerHTML = '<div class="empty" style="padding:10px 0;font-size:13px;color:#ccc">本月暂无记录</div>';
+    return;
+  }
+
+  const netClass = net >= 0 ? 'win' : 'loss';
+  const netSign = net >= 0 ? '+' : '';
+  el.innerHTML = `
+    <div class="stat-item">
+      <div class="stat-label">本月净盈亏</div>
+      <div class="stat-value ${netClass}">${netSign}${formatAmount(net)}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">总赢</div>
+      <div class="stat-value win">+${formatAmount(totalWin)}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">总输</div>
+      <div class="stat-value loss">-${formatAmount(totalLoss)}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// HISTORY TAB
+// ============================================================
+function renderHistory(filterYm) {
+  let dates = getAllSortedDates();
+  if (filterYm) dates = dates.filter(d => d.startsWith(filterYm));
+
+  const list = document.getElementById('history-list');
+  const todayStr = today();
+
+  const header = filterYm
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+         <div style="font-size:15px;font-weight:700;color:#1a1a2e">${monthLabel(filterYm)}</div>
+         <button onclick="renderHistory()" style="background:none;border:none;color:#4a6cf7;font-size:13px;cursor:pointer;font-weight:600">全部</button>
+       </div>`
+    : '';
+
+  if (dates.length === 0) {
+    list.innerHTML = header + '<div class="empty"><div class="empty-icon">📋</div>暂无记录</div>';
+    return;
+  }
+
+  list.innerHTML = header + dates.map(d => {
+    const r = records[d];
+    const { year, month, day } = formatDate(d);
+    const isWin = r.type === 'win';
+    const sign = isWin ? '+' : '-';
+    const cls = isWin ? 'win' : 'loss';
+    const isToday = d === todayStr;
+
+    return `
+      <div class="record-item">
+        <div class="record-date-block">
+          <div class="record-day">${day}</div>
+          <div class="record-month">${year}/${month}</div>
+        </div>
+        <div class="record-info">
+          <div style="font-size:14px;font-weight:600;color:#1a1a2e">
+            ${isWin ? '赢' : '输'}${isToday ? '<span class="today-badge">今天</span>' : ''}
+          </div>
+          ${r.note ? `<div class="record-note">${escHtml(r.note)}</div>` : ''}
+        </div>
+        <div class="record-amount ${cls}">${sign}${formatAmount(r.amount)}</div>
+        <button class="record-edit-btn" onclick="openModal('${d}')">编辑</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// MONTHLY TAB
+// ============================================================
+function renderMonthly() {
+  const monthMap = {};
+
+  Object.entries(records).forEach(([d, r]) => {
+    const ym = d.slice(0, 7);
+    if (!monthMap[ym]) monthMap[ym] = { win: 0, loss: 0, days: 0 };
+    monthMap[ym].days++;
+    if (r.type === 'win') monthMap[ym].win += r.amount;
+    else monthMap[ym].loss += r.amount;
+  });
+
+  const months = Object.keys(monthMap).sort((a, b) => b.localeCompare(a));
+  const el = document.getElementById('monthly-list');
+
+  if (months.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📊</div>暂无月度数据</div>';
+    return;
+  }
+
+  el.innerHTML = months.map(ym => {
+    const { win, loss, days } = monthMap[ym];
+    const net = win - loss;
+    const netClass = net >= 0 ? 'win' : 'loss';
+    const netSign = net >= 0 ? '+' : '';
+
+    return `
+      <div class="month-row" onclick="showMonthDetail('${ym}')">
+        <div class="month-row-header">
+          <div class="month-row-label">${monthLabel(ym)}</div>
+          <div class="month-row-net ${netClass}">${netSign}${formatAmount(net)}</div>
+        </div>
+        <div class="month-row-details">
+          <div>共 <span>${days}</span> 天</div>
+          <div>赢 <span style="color:#16a34a">+${formatAmount(win)}</span></div>
+          <div>输 <span style="color:#dc2626">-${formatAmount(loss)}</span></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function showMonthDetail(ym) {
+  // Switch to history tab and filter by month
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-history').classList.add('active');
+  document.getElementById('tab-btn-history').classList.add('active');
+  renderHistory(ym);
+}
+
+// ============================================================
+// MODAL — Edit / Delete
+// ============================================================
+let modalDateStr = null;
+let modalType = null;
+
+function openModal(dateStr) {
+  modalDateStr = dateStr;
+  const r = getRecord(dateStr);
+  if (!r) return;
+
+  document.getElementById('modal-date').value = dateStr;
+  document.getElementById('modal-amount').value = r.amount;
+  document.getElementById('modal-note').value = r.note || '';
+  modalSelectType(r.type);
+
+  const { year, month, day } = formatDate(dateStr);
+  document.getElementById('modal-title').textContent =
+    `修改 ${year}年${parseInt(month)}月${parseInt(day)}日`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  modalDateStr = null;
+  modalType = null;
+}
+
+function closeModalOnBg(e) {
+  if (e.target === document.getElementById('modal')) closeModal();
+}
+
+function modalSelectType(t) {
+  modalType = t;
+  document.getElementById('modal-btn-win').className = 'wl-btn' + (t === 'win' ? ' selected-win' : '');
+  document.getElementById('modal-btn-loss').className = 'wl-btn' + (t === 'loss' ? ' selected-loss' : '');
+}
+
+function setModalBusy(busy) {
+  ['modal-btn-save', 'modal-btn-cancel', 'modal-btn-delete'].forEach(id => {
+    document.getElementById(id).disabled = busy;
+  });
+}
+
+async function saveModalRecord() {
+  const amount = parseFloat(document.getElementById('modal-amount').value);
+  const note = document.getElementById('modal-note').value;
+
+  if (!modalType) return alert('请选择赢或输');
+  if (isNaN(amount) || amount < 0) return alert('请输入有效金额');
+
+  setModalBusy(true);
+  document.getElementById('modal-btn-save').textContent = '保存中...';
+  try {
+    await upsertRecord(modalDateStr, modalType, amount, note);
+    closeModal();
+    renderHistory();
+    renderQuickStats();
+    showToast('已修改 ✓');
+  } catch (e) {
+    showToast('保存失败，请重试');
+  } finally {
+    setModalBusy(false);
+    document.getElementById('modal-btn-save').textContent = '保存';
+  }
+}
+
+async function deleteRecord() {
+  if (!confirm('确定删除这条记录？')) return;
+  setModalBusy(true);
+  try {
+    await deleteRecordData(modalDateStr);
+    closeModal();
+    renderHistory();
+    renderQuickStats();
+    showToast('已删除');
+  } catch (e) {
+    showToast('删除失败，请重试');
+  } finally {
+    setModalBusy(false);
+  }
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = [
+      'position:fixed', 'bottom:40px', 'left:50%', 'transform:translateX(-50%)',
+      'background:#1a1a2e', 'color:#fff', 'padding:10px 22px', 'border-radius:24px',
+      'font-size:14px', 'font-weight:600', 'z-index:999', 'opacity:0', 'transition:opacity 0.3s',
+      'pointer-events:none', 'white-space:nowrap',
+    ].join(';');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+(async () => {
+  try {
+    await initData();
+  } catch (e) {
+    console.error('Failed to load records:', e);
+    showToast('加载失败，请刷新重试');
+  } finally {
+    document.getElementById('loading-overlay').style.display = 'none';
+  }
+  initRecordTab();
+  renderQuickStats();
+})();
+</script>
+</body>
+</html>
