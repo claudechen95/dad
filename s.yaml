@@ -1,0 +1,33 @@
+edition: 3.0.0
+name: dad-gambling-records
+access: default
+
+resources:
+  dad:
+    component: fc3
+    props:
+      region: cn-hangzhou
+      functionName: dad-gambling-records
+      description: 每日盈亏记录
+      runtime: custom.debian10
+      code: .
+      handler: not-used
+      memorySize: 256
+      timeout: 60
+      customRuntimeConfig:
+        command:
+          - node
+          - server.js
+        port: 9000
+      environmentVariables:
+        PORT: '9000'
+      triggers:
+        - triggerName: httpTrigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - DELETE
+              - OPTIONS
