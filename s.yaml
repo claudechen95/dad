@@ -15,9 +15,6 @@ resources:
       memorySize: 256
       timeout: 60
       customRuntimeConfig:
-        command:
-          - /bin/bash
-          - bootstrap
         port: 9000
       environmentVariables:
         PORT: '9000'
